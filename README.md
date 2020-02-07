@@ -1,2 +1,2 @@
-# pygenome
-Python API for working with genome fasta/bed/annotations
+# pyGenome
+Python API to work with genome fasta/bed/annotation
