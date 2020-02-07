@@ -33,7 +33,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'genome=core:main'
+            'genome=pygenome:main'
         ],
     },
 )
