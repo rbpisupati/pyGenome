@@ -27,7 +27,7 @@ class GenomeClass(object):
             self.golden_chrlen = [30427671, 19698289, 23459830, 18585056, 26975502]
             self.centro_start = [14364752, 3602775, 12674550, 2919690, 11668616]
             self.centro_end   = [15750321, 3735247, 13674767, 4011692, 12082583]
-            self.cetro_mid = np.add(self.centro_start, self.centro_end)/2
+            self.centro_mid = np.add(self.centro_start, self.centro_end)/2
         elif os.path.exists(ref_genome):
             ## Provide a fasta file to check for genome lengths etc
             from pyfaidx import Faidx
@@ -84,7 +84,7 @@ class GenomeClass(object):
         if type(df_str) is not pd.core.series.Series and type(df_str) is not pd.core.frame.DataFrame:
             die("please input pandas dataframe or series object")
         elif type(df_str) is pd.core.series.Series:
-            df_str_np = np.array(df_str, dtype="string")
+            df_str_np = np.array(df_str, dtype="str")
             df_str_unique = np.unique(df_str_np, return_inverse=True)
             df_str_inds = np.array(pd.Series(df_str_unique[0]).str.split(",").apply(getInd_bin_bed, args= (self,) ))
             return( df_str_inds[df_str_unique[1]] )
@@ -162,7 +162,7 @@ class GenomeClass(object):
     def get_inds_overlap_region(self, region_bed_df, name="genes", request_ind = None, g = None):
         import pybedtools as pybed
         assert hasattr(self, name), "please load required bed file using 'load_bed_ids_str' function. ex., ARAPORT11/Araport11_GFF3_genes_201606.bed"
-        assert type(region_bed_df) is pd.core.frame.DataFrame, "please provide a pandas series object"
+        assert type(region_bed_df) is pd.core.frame.DataFrame, "please provide a pd.DataFrame object"
         if request_ind is None:
             gene_bed = pybed.BedTool.from_dataframe( self.__getattribute__(name).iloc[:,[0,1,2]] )
         else:
@@ -181,6 +181,11 @@ class GenomeClass(object):
         out_dict = { "region_ix": np.where( np.in1d(region_bed_str, inter_region_bed_str ) )[0] }
         out_dict['ref_ix'] = np.where( np.in1d(self.__getattribute__(name + '_str'), inter_gene_bed_str ) )[0]
         return(out_dict)
+
+    def search_sort_centro_indices(self, required_region):
+        region_bed_ix = self.get_genomewide_inds( required_region )
+        return( np.searchsorted(region_bed_ix, self.get_genomewide_inds( pd.DataFrame({"chr": self.chrs, "pos": self.centro_mid}) ) ) )
+
 
 def get_reverse_complement(seq):
     old_chars = "ACGT"
