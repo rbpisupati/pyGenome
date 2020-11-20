@@ -28,8 +28,7 @@ setup(
     install_requires=[
         "numpy >=1.9.0",
         "scipy >=0.17.0",
-        "pyfaidx",
-        "biopython"
+        "pyfaidx"
     ],
     entry_points={
         'console_scripts': [

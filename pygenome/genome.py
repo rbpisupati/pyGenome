@@ -32,7 +32,7 @@ class GenomeClass(object):
             ## Provide a fasta file to check for genome lengths etc
             from pyfaidx import Faidx
             genome = Faidx(ref_genome).index
-            self.chrs = np.sort(np.array(genome.keys())).tolist()
+            self.chrs = np.array(list(genome.keys())).astype('U13')
             self.real_chrlen = [ genome[ef].rlen for ef in self.chrs]
             self.golden_chrlen = self.real_chrlen
         self.chr_inds = np.append(0, np.cumsum(self.golden_chrlen))
@@ -182,9 +182,30 @@ class GenomeClass(object):
         out_dict['ref_ix'] = np.where( np.in1d(self.__getattribute__(name + '_str'), inter_gene_bed_str ) )[0]
         return(out_dict)
 
-    def search_sort_centro_indices(self, required_region):
+    def search_sort_centro_indices(self, required_region, highlighted_bed_df="centro"):
+        if highlighted_bed_df == "centro":
+            highlighted_bed_df = pd.DataFrame( {"chr": self.chrs, "pos": self.centro_mid} )
+        elif highlighted_bed_df == "ends":
+            highlighted_bed_df = pd.DataFrame( {"chr": self.chrs, "pos": self.golden_chrlen} )
+        assert type(highlighted_bed_df) is pd.core.frame.DataFrame, "please provide a pd.DataFrame object"
         region_bed_ix = self.get_genomewide_inds( required_region )
-        return( np.searchsorted(region_bed_ix, self.get_genomewide_inds( pd.DataFrame({"chr": self.chrs, "pos": self.centro_mid}) ) ) )
+        return( np.searchsorted(region_bed_ix, self.get_genomewide_inds( highlighted_bed_df ) ) )
+
+    def add_upstream_downstream_binbed(self, binbed, updown = 50000):
+        """
+        A function to add upstream and downsteam 
+        input:
+            1. binbed: "Chr1,1,1000"
+            2. updown: 50kb or so
+        output:
+            A pandas series adding in given updown
+        """
+        binbed_str = pd.Series( binbed ).str.split( ",", expand = True )
+        t_chr_maxlen = pd.Series(self.golden_chrlen)[binbed_str.iloc[:,0].apply(self.get_chr_ind)]
+        binbed_str.iloc[:,1] = pd.DataFrame( {'a': binbed_str.iloc[:,1].astype(int) - updown, 'b': 0} ).max(axis =1)
+        binbed_str.iloc[:,2] = pd.DataFrame( np.column_stack((binbed_str.iloc[:,2].astype(int) + updown, t_chr_maxlen)) ).min(axis =1) 
+        return( binbed_str.iloc[:,0] + "," + binbed_str.iloc[:,1].astype(str) + "," + binbed_str.iloc[:,2].astype(str) )
+
 
 
 def get_reverse_complement(seq):
