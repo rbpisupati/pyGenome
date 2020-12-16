@@ -32,8 +32,13 @@ class GenomeClass(object):
             ## Provide a fasta file to check for genome lengths etc
             from pyfaidx import Faidx
             genome = Faidx(ref_genome).index
-            self.chrs = np.array(list(genome.keys())).astype('U13')
-            self.real_chrlen = [ genome[ef].rlen for ef in self.chrs]
+            self.chrs = []
+            self.real_chrlen = []
+            for key,value in genome.items():
+                self.chrs.append(key)
+                self.real_chrlen.append(genome[key].rlen)
+            # self.chrs = np.array(list(genome.keys())).astype('U13')
+            # self.real_chrlen = [ genome[ef].rlen for ef in self.chrs]
             self.golden_chrlen = self.real_chrlen
         self.chr_inds = np.append(0, np.cumsum(self.golden_chrlen))
 
@@ -43,7 +48,7 @@ class GenomeClass(object):
 
     def load_bed_ids_str(self, **kwargs):
         for req_name in kwargs:
-            req_bed_df = pd.read_csv( kwargs[req_name], header=None, sep = "\t")
+            req_bed_df = pd.read_csv( kwargs[req_name], header=None, sep = "\t", dtype = {0: str, 1: int, 2: int} )
             setattr(self, req_name, req_bed_df)
             setattr(self, req_name + "_str", np.array(req_bed_df.iloc[:,0] + ',' + req_bed_df.iloc[:,1].map(str) + ',' + req_bed_df.iloc[:,2].map(str), dtype="str") )
 
