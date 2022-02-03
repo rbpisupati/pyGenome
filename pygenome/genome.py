@@ -16,6 +16,31 @@ def getInd_bin_bed(bin_bed, tair10):
     bin_s = [int(bin_bed[0].replace("Chr", "")) - 1, int(bin_bed[1]), int(bin_bed[2])]
     return(tair10.chr_inds[bin_s[0]] + int(( bin_s[1] + bin_s[2] )/2) )
 
+def iter_chr_positions_windows(reference_bed, query_positions, window_size):
+    assert isinstance(query_positions, np.ndarray), "please provide a numpy array"
+    assert isinstance(reference_bed, list), "please provide a list for position start and end"
+    assert len(reference_bed) == 2, "just start and end please, [start, end]"
+    filter_pos_ix = np.arange( np.searchsorted(query_positions, reference_bed[0], 'left'  ), np.searchsorted(query_positions, reference_bed[1], 'right') )
+    ind = 0
+    # if len(filter_pos_ix) == 0:
+    #     return( (reference_bed, filter_pos_ix) )
+    for t in range(reference_bed[0], reference_bed[1], window_size):
+        skipped = True
+        result = []
+        bin_bed = [int(t), min(reference_bed[1], int(t) + window_size - 1)]
+        for epos in query_positions[ind:]:
+            if epos >= bin_bed[0]:
+                if epos <= bin_bed[1]:
+                    result.append(filter_pos_ix[ind])
+                elif epos > bin_bed[1]:
+                    skipped = False
+                    yield((bin_bed, result))
+                    break
+                ind = ind + 1
+        if skipped:
+            yield((bin_bed, result))
+
+
 class GenomeClass(object):
     ## coordinates for ArabidopsisGenome using TAIR 10
 
@@ -128,6 +153,16 @@ class GenomeClass(object):
             for ewin in echr_windows:
                 yield([echr, ewin[0], ewin[1]])
 
+    def iter_positions_in_windows(self, query_bed_df, window_size):
+        assert isinstance(query_bed_df, pd.DataFrame), "provide a dataframe object" 
+        for echr, echrlen in zip(self.chrs, self.golden_chrlen):
+            echr_query_start = np.searchsorted(query_bed_df.iloc[:,0], echr, 'left'  )
+            echr_query_ix = np.arange(echr_query_start, np.searchsorted(query_bed_df.iloc[:,0], echr, 'right') )
+            echr_windows = iter_chr_positions_windows([1, echrlen], query_bed_df.iloc[echr_query_ix,1].values, window_size)
+            for ewin in echr_windows:
+                yield([echr, ewin[0], ewin[1] + echr_query_start])
+
+
     def estimated_cM_distance(self, snp_position):
         ## snp_position = "Chr1,150000" or "Chr1,1,300000"
         # Data based on
@@ -144,9 +179,9 @@ class GenomeClass(object):
         return( mean_recomb_rates[chr_ix] * snp_position[1] / 1000000 )
 
     def get_mc_context(self, cid, pos):
-        dnastring_pos = self.fasta[cid][pos:pos+3].seq.encode('ascii').upper()
+        dnastring_pos = self.fasta[cid][pos:pos+3].seq.encode('ascii').upper().decode("utf-8")
         ## make sure you can have to identify strand here
-        dnastring_neg = self.fasta[cid][pos-2:pos+1].seq.encode('ascii').upper()  ## Changed the position, different from forward
+        dnastring_neg = self.fasta[cid][pos-2:pos+1].seq.encode('ascii').upper().decode("utf-8")  ## Changed the position, different from forward
         dnastring_neg = get_reverse_complement(dnastring_neg)
         if dnastring_pos[0].upper() == 'C' and dnastring_neg[0].upper() != 'C':
             strand = '0'
@@ -211,10 +246,34 @@ class GenomeClass(object):
         binbed_str.iloc[:,2] = pd.DataFrame( np.column_stack((binbed_str.iloc[:,2].astype(int) + updown, t_chr_maxlen)) ).min(axis =1) 
         return( binbed_str.iloc[:,0] + "," + binbed_str.iloc[:,1].astype(str) + "," + binbed_str.iloc[:,2].astype(str) )
 
+    def identify_all_cytosines_gene(self, gene_id):
+        bed_str = bed_str.split(",")
+        bed_str = [bed_str[0], int(bed_str[1]), int(bed_str[2])]
+        bed_seq = self.fasta[bed_str[0]][bed_str[1]:bed_str[2]].seq
+        return(bed_seq)
+
+        # for each_position in np.arange(bed_str[1], bed_str[2]):
+            # each_context = self.get_mc_context( "Chr5", 1934245 )
+
+def scale_colors(minval, maxval, val, safe_colors = None):
+    import palettable
+    if safe_colors is None:
+        safe_colors = palettable.colorbrewer.sequential.BuGn_7.colors
+    EPSILON = sys.float_info.epsilon  # Smallest possible difference.
+    i_f = float(val-minval) / float(maxval-minval) * (len(safe_colors)-1)
+    i, f = int(i_f // 1), i_f % 1  # Split into whole & fractional parts.
+    if f < EPSILON:
+        ret_col = safe_colors[i]
+    else:  # Otherwise return a color within the range between them.
+        (r1, g1, b1), (r2, g2, b2) = safe_colors[i], safe_colors[i+1]
+        ret_col = int(r1 + f*(r2-r1)), int(g1 + f*(g2-g1)), int(b1 + f*(b2-b1))
+    return('#%02x%02x%02x' % (ret_col[0], ret_col[1], ret_col[2]))
+
+np_scale_colors = np.vectorize(scale_colors, excluded = ["safe_colors"])
 
 
 def get_reverse_complement(seq):
     old_chars = "ACGT"
     replace_chars = "TGCA"
-    tab = string.maketrans(old_chars,replace_chars)
+    tab = str.maketrans(old_chars,replace_chars)
     return(seq.translate(tab)[::-1])
