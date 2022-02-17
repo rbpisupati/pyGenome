@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 import string
+from pyfaidx import Faidx, Fasta
 import sys, os.path
 
 log = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ class GenomeClass(object):
             self.centro_mid = np.add(self.centro_start, self.centro_end)/2
         elif os.path.exists(ref_genome):
             ## Provide a fasta file to check for genome lengths etc
-            from pyfaidx import Faidx
+            self.fasta = Fasta(ref_genome)
             genome = Faidx(ref_genome).index
             self.chrs = []
             self.real_chrlen = []
@@ -65,11 +66,7 @@ class GenomeClass(object):
             # self.chrs = np.array(list(genome.keys())).astype('U13')
             # self.real_chrlen = [ genome[ef].rlen for ef in self.chrs]
             self.golden_chrlen = self.real_chrlen
-        self.chr_inds = np.append(0, np.cumsum(self.golden_chrlen))
-
-    def load_genome_fasta(self, fasta_file):
-        from pyfaidx import Fasta
-        self.fasta = Fasta(fasta_file)
+        self.chr_inds = np.append(0, np.cumsum(self.golden_chrlen))        
 
     def load_bed_ids_str(self, **kwargs):
         for req_name in kwargs:
@@ -252,8 +249,6 @@ class GenomeClass(object):
         bed_seq = self.fasta[bed_str[0]][bed_str[1]:bed_str[2]].seq
         return(bed_seq)
 
-        # for each_position in np.arange(bed_str[1], bed_str[2]):
-            # each_context = self.get_mc_context( "Chr5", 1934245 )
 
 def scale_colors(minval, maxval, val, safe_colors = None):
     import palettable
