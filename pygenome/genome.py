@@ -250,6 +250,19 @@ class GenomeClass(object):
         return(bed_seq)
 
 
+    def getGC(self, bed_str):
+        from collections import defaultdict
+        bed_str = bed_str.split(",")
+        bed_str = [bed_str[0], int(bed_str[1]), int(bed_str[2])]
+        bed_seq = self.fasta[bed_str[0]][bed_str[1]:bed_str[2]].seq.upper()
+        char_count = defaultdict(int)
+        for char in bed_seq:
+            char_count[char] += 1
+        gc_sum = char_count['C'] + char_count['G']
+        at_sum = char_count['A'] + char_count['T']
+        return( (100 * gc_sum) / (gc_sum + at_sum)  )
+
+
 def scale_colors(minval, maxval, val, safe_colors = None):
     import palettable
     if safe_colors is None:
