@@ -195,9 +195,9 @@ class PlottingGenomeWide(object):
         if "line" not in plt_options.keys():
             plt_options['line'] = True
         if "ylabel" not in plt_options.keys():
-            plt_options['ylabel'] = "windows"
+            plt_options['ylabel'] = "density"
         if "xlabel" not in plt_options.keys():
-            plt_options['xlabel'] = "density"
+            plt_options['xlabel'] = "windows"
 
         if axs is None:
             axs = plt.gca()
