@@ -104,7 +104,7 @@ class PlottingGenomeWide(object):
 
     """
 
-    def __init__(self, ref_genome_class):
+    def __init__(self, ref_genome_class, min_chr_length = 1000000):
         assert type(ref_genome_class) is genome.GenomeClass, "provide a genome class"
         self.genome = ref_genome_class
 
@@ -113,6 +113,8 @@ class PlottingGenomeWide(object):
         self.chr_info['mid'] = (np.array(self.genome.golden_chrlen)/2).astype(int)
         self.chr_info['chr_ind_start'] = np.array(self.genome.chr_inds)[:-1]
         self.chr_info['chr_ind_end'] = np.array(self.genome.chr_inds)[1::]
+        log.warn("filtering out genome scaffolds less than %s" % min_chr_length)
+        self.chr_info = self.chr_info[self.chr_info['len'] > min_chr_length]
 
     def density_plot_chr_wide(self, bed_df, axs = None, plt_options = None):
         if plt_options is None:
@@ -175,7 +177,7 @@ class PlottingGenomeWide(object):
 
         return((axs, {'chrom_ybase': chrom_ybase, 'gene_ybase': gene_ybase, 'chrom_centers': chrom_centers}))
 
-    def density_line_plot_echr(self, bed_pos_df, echr = "Chr1", axs = None, plt_options = {}):
+    def density_line_plot_positions(self, bed_pos_df, echr = "Chr1", axs = None, plt_options = {}):
         """
         Function to generate a density plot for given a list of positions
 
@@ -190,6 +192,12 @@ class PlottingGenomeWide(object):
             plt_options['color'] = "#238443"
         if "nsmooth" not in plt_options.keys():
             plt_options['nsmooth'] = None
+        if "line" not in plt_options.keys():
+            plt_options['line'] = True
+        if "ylabel" not in plt_options.keys():
+            plt_options['ylabel'] = "windows"
+        if "xlabel" not in plt_options.keys():
+            plt_options['xlabel'] = "density"
 
         if axs is None:
             axs = plt.gca()
@@ -198,19 +206,16 @@ class PlottingGenomeWide(object):
         for ef_bin in self.genome.iter_positions_in_windows(bed_pos_df, window_size = plt_options['window_size']):
             data_window_density = pd.concat([data_window_density, pd.DataFrame({"chr": ef_bin[0], "start": ef_bin[1][0], "end": ef_bin[1][1], "npos": len(ef_bin[2]) }, index=[0])  ], ignore_index=True)
 
-        data_window_density = data_window_density[data_df['chrom'] == echr]
         if plt_options['nsmooth'] is not None:
-            data_window_density['npos'] = smooth_sum(data_window_density['npos'].values, plt_options['nsmooth']) 
-            
+            for ef_density in data_window_density.groupby('chr'):
+                data_window_density.loc[ef_density[1].index, 'npos'] = smooth_sum(ef_density[1]['npos'], plt_options['nsmooth']) 
 
-        sns.lineplot(self.genome.get_genomewide_inds( data_window_density.iloc[:,[0,1,2]] ), data_window_density['npos'].values, ax = axs, c = plt_options['color']  )
-        if 'centro_mid' in self.genome.__dict__.keys():
-            echr_centro = self.genome.centro_mid[self.genome.get_chr_ind( echr )]
-            axs.plot( (echr_centro, echr_centro), (0,np.maximum(data_window_density['npos'])), '--', c = "#636363" )
-        
-        # self.chr_info.iloc[self.genome.get_chr_ind( echr ),:]["mid"]
-        # axs.set_xticks( chr_mid_ix[np.where(np.array(self.genome.golden_chrlen) > 1000000)[0]] )
-        # axs.set_xticklabels( np.array(self.genome.chrs)[np.where(np.array(self.genome.golden_chrlen) > 1000000)[0]] )
+        self.manhattan_plot( 
+            self.genome.get_genomewide_inds( data_window_density.iloc[:,[0,1,2]] ), 
+            data_window_density['npos'].values, 
+            plt_options=plt_options,
+            axs = axs
+        )
 
     def generate_heatmap_genomewide(self, score_df, plt_options = {}, axs = None, **kwargs):
         """
@@ -310,8 +315,6 @@ class PlottingGenomeWide(object):
         if axs is None:
             axs = plt.gca()
         
-        log.warn("filtering out genome scaffolds less than 1Mb")
-        chr_info = chr_info[chr_info['len'] > 1000000]
         for echr in chr_info.iterrows():
             t_chr_ix = np.where((x_ind <= echr[1]['chr_ind_end'] ) & ( x_ind > echr[1]['chr_ind_start'] ))[0]
             if plt_options['line']:
@@ -326,6 +329,7 @@ class PlottingGenomeWide(object):
         
         axs.set_xlabel( plt_options['ylabel'] )
         axs.set_ylim( plt_options['ylim'] )
+        axs.set_xlim( (0, chr_info['chr_ind_end'].iloc[-1] + (plt_options['gap'] * (chr_info.shape[0] - 1))  ) )
         return(axs)
 
 
