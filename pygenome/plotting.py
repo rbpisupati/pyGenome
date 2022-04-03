@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import scipy as sp
 import pandas as pd
@@ -8,6 +9,30 @@ import seaborn as sns
 from . import genome
 import logging
 log = logging.getLogger(__name__)
+
+def scale_colors(minval, maxval, val, safe_colors = None):
+    if safe_colors is None:
+        ### Copied colors from cb.sequential.BuGn_7.colors
+        safe_colors = [
+            [237, 248, 251],
+            [204, 236, 230],
+            [153, 216, 201],
+            [102, 194, 164],
+            [65, 174, 118],
+            [35, 139, 69],
+            [0, 88, 36]
+        ]
+    EPSILON = sys.float_info.epsilon  # Smallest possible difference.
+    i_f = float(val-minval) / float(maxval-minval) * (len(safe_colors)-1)
+    i, f = int(i_f // 1), i_f % 1  # Split into whole & fractional parts.
+    if f < EPSILON:
+        ret_col = safe_colors[i]
+    else:  # Otherwise return a color within the range between them.
+        (r1, g1, b1), (r2, g2, b2) = safe_colors[i], safe_colors[i+1]
+        ret_col = int(r1 + f*(r2-r1)), int(g1 + f*(g2-g1)), int(b1 + f*(b2-b1))
+    return('#%02x%02x%02x' % (ret_col[0], ret_col[1], ret_col[2]))
+
+np_scale_colors = np.vectorize(scale_colors, excluded = ['safe_colors'])
 
 def smooth_sum(arr, n_times= 100):
     arr = np.array(arr, dtype = float)
@@ -331,6 +356,99 @@ class PlottingGenomeWide(object):
         axs.set_ylim( plt_options['ylim'] )
         axs.set_xlim( (0, chr_info['chr_ind_end'].iloc[-1] + (plt_options['gap'] * (chr_info.shape[0] - 1))  ) )
         return(axs)
+
+    def gwas_peaks_matrix(self, x_ind, y_ind, peak_heights = None, plt_options = {}, legend_scale = None, **kwargs):
+        """
+        given indices for x axis and y axis. this function plots our favorite matrix plot
+        
+        """
+        chr_info = self.chr_info.copy()
+
+        if "ylabel" not in plt_options.keys():
+            plt_options['ylabel'] = ""
+        if "xlabel" not in plt_options.keys():
+            plt_options['xlabel'] = ""
+        if "color" not in plt_options.keys():
+            plt_options['color'] = "#d8b365"
+        if "cmap" not in plt_options.keys():
+            plt_options['cmap'] = (None, "BuGn") ### Chooses palettable.colorbrewer.sequential.BuGn_7.colors
+        if "hist_color" not in plt_options.keys():
+            plt_options['hist_color'] = "#8c510a"
+        if "alpha" not in plt_options.keys():
+            plt_options['alpha'] = 0.1
+        if "height" not in plt_options.keys():
+            plt_options['height'] = 12
+        # if "ratio" not in plt_options.keys():
+        plt_options['ratio'] = 1
+
+        if peak_heights is not None:
+            if legend_scale is None: 
+                legend_scale = [np.min(peak_heights), np.max(peak_heights)]
+            plt_options['color'] = np_scale_colors(legend_scale[0], legend_scale[1], peak_heights, safe_colors =  plt_options['cmap'][0])
+
+        plt_limits = (1, chr_info['chr_ind_end'].values[-1])
+
+        if type(plt_options['color']) is np.ndarray:
+            p = sns.jointplot(
+                x = x_ind, 
+                y = y_ind, 
+                marginal_kws={"bins": np.linspace(1, plt_limits[1], 250),"color": plt_options['hist_color'] }, 
+                xlim = plt_limits, 
+                ylim = plt_limits, 
+                kind = "scatter", 
+                alpha = plt_options['alpha'], 
+                joint_kws={"s": 8}, 
+                height = plt_options['height'], 
+                ratio = plt_options['ratio'], 
+                **kwargs
+            )
+            p.ax_joint.cla()
+            #for i in range(len(x_ind)):
+            p.ax_joint.scatter(x = x_ind, y = y_ind, c=plt_options['color'], s = 8)
+        else:
+            p = sns.jointplot(
+                x = x_ind, 
+                y = y_ind, 
+                marginal_kws={"bins": np.linspace(1, plt_limits[1], 250),"color": plt_options['hist_color'] }, 
+                xlim = plt_limits, 
+                ylim = plt_limits, 
+                kind = "scatter", 
+                color = plt_options['color'], 
+                alpha = plt_options['alpha'], 
+                joint_kws={"s": 8}, 
+                height = plt_options['height'], 
+                ratio = plt_options['ratio'], 
+                **kwargs
+            )
+        p.ax_marg_y.remove()
+        p.ax_joint.plot( (0, 0) , plt_limits, '-', color = "gray")
+        p.ax_joint.plot( plt_limits, (0, 0), '-', color = "gray")
+
+        for echr in chr_info.iterrows():
+            p.ax_joint.plot( (echr[1]['chr_ind_end'] , echr[1]['chr_ind_end']) , plt_limits, '-', color = "gray")
+            p.ax_joint.plot( plt_limits, (echr[1]['chr_ind_end'] , echr[1]['chr_ind_end']), '-', color = "gray")
+
+        if 'centro_mid' in self.genome.__dict__.keys():
+            chr_info = pd.merge(chr_info, pd.DataFrame({"chr": self.genome.chrs, "centro_mid": self.genome.centro_mid}), left_on="chr", right_on="chr" )
+            for echr in chr_info.iterrows():
+                p.ax_joint.plot( (echr[1]['chr_ind_start'] + echr[1]['centro_mid'] , echr[1]['chr_ind_start'] + echr[1]['centro_mid']), plt_limits, ':k', color = "gray")
+                p.ax_joint.plot( plt_limits, (echr[1]['chr_ind_start'] + echr[1]['centro_mid'] , echr[1]['chr_ind_start'] + echr[1]['centro_mid']), ':k', color = "gray")
+        
+        p.ax_joint.set_xticks( chr_info['chr_ind_start'] + chr_info['mid'] )
+        p.ax_joint.set_xticklabels( chr_info['chr'] )
+        p.ax_joint.set_yticks( chr_info['chr_ind_start'] + chr_info['mid'] )
+        p.ax_joint.set_yticklabels( chr_info['chr'] )
+        
+        if legend_scale is not None:
+            p.ax_marg_x.remove()
+            norm = plt.Normalize(legend_scale[0], legend_scale[1])
+            sm = plt.cm.ScalarMappable(cmap=plt_options['cmap'][1], norm=norm)
+            sm.set_array([])
+            p.ax_joint.figure.colorbar(sm, shrink = 0.5)
+        
+        p.ax_joint.set_xlabel( plt_options['xlabel'] )
+        p.ax_joint.set_ylabel( plt_options['ylabel'] )
+        return(p)
 
 
 
