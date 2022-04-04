@@ -46,6 +46,7 @@ class GenomeClass(object):
     ## coordinates for ArabidopsisGenome using TAIR 10
 
     def __init__(self, ref_genome = "at_tair10"):
+        self.genome_str = ref_genome
         if ref_genome == "at_tair10":
             self.chrs = ['Chr1','Chr2','Chr3','Chr4','Chr5']
             self.def_color = ["#1f78b4", "#33a02c", "#1f78b4", "#33a02c", "#1f78b4"]
