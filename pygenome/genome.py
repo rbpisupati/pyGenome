@@ -12,11 +12,6 @@ def die(msg):
   sys.stderr.write('Error: ' + msg + '\n')
   sys.exit(1)
 
-def getInd_bin_bed(bin_bed, tair10, gap = 0):
-    ## bin_bed = ["Chr1", 1, 1000]
-    bin_chr_ix = tair10.get_chr_ind( bin_bed[0] )
-    bin_s = [bin_chr_ix, int(bin_bed[1]), int(bin_bed[2])]
-    return(tair10.chr_inds[bin_s[0]] + (gap * bin_chr_ix) + int(( bin_s[1] + bin_s[2] )/2) )
 
 def iter_chr_positions_windows(reference_bed, query_positions, window_size):
     assert isinstance(query_positions, np.ndarray), "please provide a numpy array"
@@ -120,25 +115,25 @@ class GenomeClass(object):
             Numpy array for the indices
         """
         ### 
-        if type(df_str) is not pd.core.series.Series and type(df_str) is not pd.core.frame.DataFrame:
-            die("please input pandas dataframe or series object")
-        elif type(df_str) is pd.core.series.Series:
-            df_str_np = np.array(df_str, dtype="str")
-            df_str_unique = np.unique(df_str_np, return_inverse=True)
-            df_str_inds = np.array(pd.Series(df_str_unique[0]).str.split(str_split).apply(getInd_bin_bed, args= (self,gap,) ))
-            return( df_str_inds[df_str_unique[1]] )
-        elif type(df_str) is pd.core.frame.DataFrame:
-            ## here first column is chr and second is position
-            if df_str.shape[1] == 2:
-                f_df_str = pd.DataFrame({
-                    "chr": df_str.iloc[:,0],
-                    "start": df_str.iloc[:,1],
-                    "end": df_str.iloc[:,1]
-                })
-            else:
-                f_df_str = df_str
-            f_df_str = pd.Series(f_df_str.values.tolist())
-            return( f_df_str.apply(getInd_bin_bed, args= (self,gap,) ).values )
+        assert type(df_str) is pd.core.series.Series or type(df_str) is pd.core.frame.DataFrame, "please input pandas dataframe or series object"
+        if type(df_str) is pd.core.series.Series:
+            df_str = df_str.copy()
+            df_str = df_str.str.split( str_split, expand = True )
+        ## here first column is chr and second is position
+        if df_str.shape[1] == 2:
+            f_df_str = pd.DataFrame({
+                "chr": df_str.iloc[:,0],
+                "start": df_str.iloc[:,1],
+                "end": df_str.iloc[:,1]
+            }).loc[:,['chr', 'start', 'end']]
+        elif df_str.shape[1] >= 3:
+            f_df_str = df_str.iloc[:,[0,1,2]].copy()
+        df_chr_inds = np.unique( f_df_str.iloc[:,0], return_inverse=True)
+        df_chr_inds = np.concatenate( pd.Series(df_chr_inds[0]).apply( self.get_chr_ind ),0 )[df_chr_inds[1]]
+        pos_ix = self.chr_inds[ df_chr_inds ]   ### Start of chromosome
+        pos_ix += gap * df_chr_inds             ## Adding required gap specific for each chromsome
+        pos_ix += f_df_str.iloc[:,[1,2]].mean(1).astype(int).values ### adding in the positions now
+        return( pos_ix )
 
     def get_genomic_position_from_ind(self, ind):
         ## This function is just opposite to the one before.
