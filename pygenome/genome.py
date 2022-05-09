@@ -123,13 +123,14 @@ class GenomeClass(object):
         if df_str.shape[1] == 2:
             f_df_str = pd.DataFrame({
                 "chr": df_str.iloc[:,0],
-                "start": df_str.iloc[:,1],
-                "end": df_str.iloc[:,1]
+                "start": df_str.iloc[:,1].astype(int),
+                "end": df_str.iloc[:,1].astype(int)
             }).loc[:,['chr', 'start', 'end']]
         elif df_str.shape[1] >= 3:
             f_df_str = df_str.iloc[:,[0,1,2]].copy()
-        df_chr_inds = np.unique( f_df_str.iloc[:,0], return_inverse=True)
-        df_chr_inds = np.concatenate( pd.Series(df_chr_inds[0]).apply( self.get_chr_ind ),0 )[df_chr_inds[1]]
+            f_df_str.iloc[:,1] = f_df_str.iloc[:,1].astype(int)
+            f_df_str.iloc[:,2] = f_df_str.iloc[:,2].astype(int)
+        df_chr_inds = self.get_chr_ind(f_df_str.iloc[:,0])
         pos_ix = self.chr_inds[ df_chr_inds ]   ### Start of chromosome
         pos_ix += gap * df_chr_inds             ## Adding required gap specific for each chromsome
         pos_ix += f_df_str.iloc[:,[1,2]].mean(1).astype(int).values ### adding in the positions now
