@@ -324,7 +324,7 @@ class PlottingGenomeWide(object):
         if "ylim" not in plt_options.keys():
             plt_options['ylim'] = (np.nanmin(y_ind), np.nanmax(y_ind))
         if "ylabel" not in plt_options.keys():
-            plt_options['ylabel'] = "markers"
+            plt_options['ylabel'] = ""
         if "gap" not in plt_options.keys():
             plt_options['gap'] = 10000000
         if "thres" not in plt_options.keys():
@@ -332,18 +332,20 @@ class PlottingGenomeWide(object):
         if "size" not in plt_options.keys():
             plt_options['size'] = 6
         
+        if "nsmooth" not in plt_options.keys():
+            plt_options['nsmooth'] = 0
+        
         if 'line' not in plt_options.keys():
             plt_options['line'] = False
-        else:
-            plt_options['line'] = True
         
         if axs is None:
             axs = plt.gca()
         
+        
         for echr in chr_info.iterrows():
             t_chr_ix = np.where((x_ind <= echr[1]['chr_ind_end'] ) & ( x_ind > echr[1]['chr_ind_start'] ))[0]
             if plt_options['line']:
-                axs.plot(x_ind[t_chr_ix] + (plt_options['gap'] * echr[0]), y_ind[t_chr_ix], '-', color = echr[1]['color'], **kwargs)
+                axs.plot(x_ind[t_chr_ix] + (plt_options['gap'] * echr[0]), smooth_sum(y_ind[t_chr_ix], plt_options['nsmooth']), '-', color = echr[1]['color'], **kwargs)
             else:
                 axs.scatter(x_ind[t_chr_ix] + (plt_options['gap'] * echr[0]), y_ind[t_chr_ix], s = plt_options['size'], c = echr[1]['color'], **kwargs)
             
