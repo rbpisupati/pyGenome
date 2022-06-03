@@ -323,6 +323,9 @@ class PlottingGenomeWide(object):
         
         if "ylim" not in plt_options.keys():
             plt_options['ylim'] = (np.nanmin(y_ind), np.nanmax(y_ind))
+        if "xlim" not in plt_options.keys():
+            plt_options['xlim'] = (0, chr_info['chr_ind_end'].iloc[-1] + (plt_options['gap'] * (chr_info.shape[0] - 1))  )
+
         if "ylabel" not in plt_options.keys():
             plt_options['ylabel'] = ""
         if "gap" not in plt_options.keys():
@@ -331,6 +334,9 @@ class PlottingGenomeWide(object):
             plt_options['thres'] = None
         if "size" not in plt_options.keys():
             plt_options['size'] = 6
+        
+        if "plt_xindex" not in plt_options.keys():
+            plt_options['plt_xindex'] = False
         
         if "nsmooth" not in plt_options.keys():
             plt_options['nsmooth'] = 0
@@ -344,19 +350,30 @@ class PlottingGenomeWide(object):
         
         for echr in chr_info.iterrows():
             t_chr_ix = np.where((x_ind <= echr[1]['chr_ind_end'] ) & ( x_ind > echr[1]['chr_ind_start'] ))[0]
-            if plt_options['line']:
-                axs.plot(x_ind[t_chr_ix] + (plt_options['gap'] * echr[0]), smooth_sum(y_ind[t_chr_ix], plt_options['nsmooth']), '-', color = echr[1]['color'], **kwargs)
+            chr_info.loc[echr[0], 'rel_ind_start'] = t_chr_ix[0] + (plt_options['gap'] * echr[0])
+            chr_info.loc[echr[0], 'rel_ind_mid'] = int(t_chr_ix.shape[0] / 2)
+            if plt_options['plt_xindex']:
+                t_x_ind = chr_info.loc[echr[0], 'rel_ind_start'] + np.arange(t_chr_ix.shape[0])
             else:
-                axs.scatter(x_ind[t_chr_ix] + (plt_options['gap'] * echr[0]), y_ind[t_chr_ix], s = plt_options['size'], c = echr[1]['color'], **kwargs)
-            
-        axs.set_xticks( chr_info['chr_ind_start'].values + (np.arange(chr_info.shape[0]) * plt_options['gap']) + chr_info['mid'].values )
+                t_x_ind = x_ind[t_chr_ix] + (plt_options['gap'] * echr[0])
+
+            if plt_options['line']:
+                axs.plot(t_x_ind, smooth_sum(y_ind[t_chr_ix], plt_options['nsmooth']), '-', color = echr[1]['color'], **kwargs)
+            else:
+                axs.scatter(t_x_ind, y_ind[t_chr_ix], s = plt_options['size'], c = echr[1]['color'], **kwargs) 
+        
+        if plt_options['plt_xindex']:
+            axs.set_xticks( chr_info['rel_ind_mid'].values + chr_info['rel_ind_start'].values )
+            plt_options['xlim'] = (0, x_ind.shape[0] + (plt_options['gap'] * (chr_info.shape[0] - 1))  )
+        else:
+            axs.set_xticks( chr_info['chr_ind_start'].values + (np.arange(chr_info.shape[0]) * plt_options['gap']) + chr_info['mid'].values )
         axs.set_xticklabels( chr_info['chr'].values )
         if plt_options['thres'] is not None:
-            axs.plot((0, chr_info['chr_ind_end'].iloc[-1] + (plt_options['gap'] * (chr_info.shape[0] - 1))  ), (plt_options['thres'], plt_options['thres']), "--", color = "gray")
+            axs.plot(plt_options['xlim'], (plt_options['thres'], plt_options['thres']), "--", color = "gray")
         
         axs.set_xlabel( plt_options['ylabel'] )
         axs.set_ylim( plt_options['ylim'] )
-        axs.set_xlim( (0, chr_info['chr_ind_end'].iloc[-1] + (plt_options['gap'] * (chr_info.shape[0] - 1))  ) )
+        axs.set_xlim( plt_options['xlim'] )
         return(axs)
 
     def gwas_peaks_matrix(self, x_ind, y_ind, peak_heights = None, plt_options = {}, legend_scale = None, **kwargs):
