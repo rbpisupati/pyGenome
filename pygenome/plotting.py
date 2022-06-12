@@ -257,6 +257,8 @@ class PlottingGenomeWide(object):
             plt_options['xlabel'] = ""
         if "ylabel" not in plt_options.keys():
             plt_options['ylabel'] = ""
+        if "yticklabels" not in plt_options.keys():
+            plt_options['yticklabels'] = False
         if "title" not in plt_options.keys():
             plt_options['title'] = ""
         if "cmap" not in plt_options.keys():
@@ -287,7 +289,7 @@ class PlottingGenomeWide(object):
             cmap=plt_options['cmap'],
             ax = axs,
             xticklabels=False,
-            yticklabels=False,
+            yticklabels=plt_options['yticklabels'],
             **kwargs
             # cbar_kws=dict(use_gridspec=False,location="bottom")
         )
@@ -320,6 +322,8 @@ class PlottingGenomeWide(object):
             chr_info['color'] = pd.Series( ["#1f78b4", "#33a02c"] ).loc[np.arange(self.chr_info.shape[0]) % 2 ].values
         else:
             chr_info['color'] = plt_options['color']
+        if "gap" not in plt_options.keys():
+            plt_options['gap'] = 10000000
         
         if "ylim" not in plt_options.keys():
             plt_options['ylim'] = (np.nanmin(y_ind), np.nanmax(y_ind))
@@ -328,8 +332,6 @@ class PlottingGenomeWide(object):
 
         if "ylabel" not in plt_options.keys():
             plt_options['ylabel'] = ""
-        if "gap" not in plt_options.keys():
-            plt_options['gap'] = 10000000
         if "thres" not in plt_options.keys():
             plt_options['thres'] = None
         if "size" not in plt_options.keys():
