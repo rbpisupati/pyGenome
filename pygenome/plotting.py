@@ -249,6 +249,7 @@ class PlottingGenomeWide(object):
             boxes for pericentromers
 
         """
+        chr_info = self.chr_info.copy()
         assert isinstance(score_df, pd.DataFrame), "provide a dataframe object"
 
         if "lims" not in plt_options.keys():
@@ -263,6 +264,12 @@ class PlottingGenomeWide(object):
             plt_options['title'] = ""
         if "cmap" not in plt_options.keys():
             plt_options['cmap'] = "Reds"
+        if "chr_line_vertical" not in plt_options.keys():
+            plt_options['chr_line_vertical'] = True
+        if "chr_line_horizontal" not in plt_options.keys():
+            plt_options['chr_line_horizontal'] = False
+        if "chr_line_centro" not in plt_options.keys():
+            plt_options['chr_line_centro'] = True
         if "col_centro_line" not in plt_options.keys():
             plt_options['col_centro_line'] = "#636363"
         if "col_chr_line" not in plt_options.keys():
@@ -276,11 +283,6 @@ class PlottingGenomeWide(object):
             score_df_new.columns = self.genome.get_genomewide_inds( pd.Series(score_df_new.columns) )
         else:
             score_df_new.columns = score_df_new.columns.astype(int)
-        
-        chr_end_ix = np.searchsorted( score_df_new.columns.values, self.genome.get_genomewide_inds( pd.DataFrame({"chr":self.genome.chrs, "pos": self.genome.golden_chrlen}) ), "right" )[0:-1]
-        
-        chr_mid_ix = np.searchsorted( score_df_new.columns.values, self.genome.get_genomewide_inds( pd.DataFrame({"chr":self.genome.chrs, "pos": (np.array(self.genome.golden_chrlen)/2).astype(int) }) ), "right" )
-        # score_df_new.insert(loc = int(e_chr_end_ix), column = "break" + str(e_chr_end_ix), value = np.nan)
         
         sns.heatmap(
             score_df_new,
@@ -297,10 +299,17 @@ class PlottingGenomeWide(object):
         axs.set_ylabel(plt_options['ylabel'])
         axs.set_title(plt_options['title'])
         
-        for e_chr_end_ix in chr_end_ix:
-            axs.plot( (e_chr_end_ix, e_chr_end_ix), (0,score_df_new.shape[0]), '-', c = plt_options['col_chr_line'] )
-            
-        if 'centro_mid' in self.genome.__dict__.keys():
+        if plt_options['chr_line_vertical']:
+            chr_end_ix = np.searchsorted( score_df_new.columns.values, self.genome.get_genomewide_inds(chr_info.loc[:,['chr','len']]), "right" )[0:-1]
+            for e_chr_end_ix in chr_end_ix:
+                axs.plot( (e_chr_end_ix, e_chr_end_ix), (0,score_df_new.shape[0]), '-', c = plt_options['col_chr_line'] )
+
+        if plt_options['chr_line_horizontal']:
+            chr_end_ix = np.searchsorted( score_df_new.index.values, self.genome.get_genomewide_inds(chr_info.loc[:,['chr','len']]), "right" )[0:-1]
+            for e_chr_end_ix in chr_end_ix:
+                axs.plot( (0,score_df_new.shape[0]), (e_chr_end_ix, e_chr_end_ix), '-', c = plt_options['col_chr_line'] )    
+        
+        if 'centro_mid' in self.genome.__dict__.keys() and plt_options['chr_line_centro']:
             centro_df = pd.DataFrame({"chr":self.genome.chrs, "pos": self.genome.centro_mid})
             centro_df = centro_df[centro_df['pos'] > 0]
             chr_centro_mid_ix = np.searchsorted( score_df_new.columns.values, self.genome.get_genomewide_inds( centro_df ), "right" )
@@ -308,9 +317,9 @@ class PlottingGenomeWide(object):
                 axs.plot( (e_chr_pos_ix, e_chr_pos_ix), (0,score_df_new.shape[0]), '--', c = plt_options['col_centro_line'] )
 
 
-    
-        axs.set_xticks( chr_mid_ix[np.where(np.array(self.genome.golden_chrlen) > 1000000)[0]] )
-        axs.set_xticklabels( np.array(self.genome.chrs)[np.where(np.array(self.genome.golden_chrlen) > 1000000)[0]] )
+        chr_mid_ix = np.searchsorted( score_df_new.columns.values, self.genome.get_genomewide_inds(chr_info.loc[:,['chr','mid']]), "right" )
+        axs.set_xticks( chr_mid_ix )
+        axs.set_xticklabels( chr_info['chr'] )
         return(axs)
 
     def manhattan_plot(self, x_ind, y_ind, plt_options = {}, axs = None, **kwargs):
