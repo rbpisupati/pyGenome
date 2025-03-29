@@ -90,7 +90,7 @@ class GenomeClass(object):
 
     def get_chr_ind(self, echr):
         real_chrs = np.array( [ ec.replace("Chr", "").replace("chr", "") for ec in self.chrs ] )
-        if type(echr) is str or type(echr) is np.string_:
+        if type(echr) is str or type(echr) is np.str_:
             echr_num = str(echr).replace("Chr", "").replace("chr", "")
             if len(np.where(real_chrs == echr_num)[0]) == 1:
                 return(np.where(real_chrs == echr_num)[0][0])
