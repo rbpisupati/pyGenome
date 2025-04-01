@@ -302,6 +302,7 @@ class GenomeClass(object):
         seq: str
             The sequence portion of the sequence record
         """
+        from itertools import groupby
         if fasta_file is None:
             fasta_file = self.fasta_file
         fh = open(fasta_file)
