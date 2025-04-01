@@ -3,7 +3,9 @@ import os.path
 import logging
 import argparse
 
-
+from . import genome
+from . import plotting
+from . import bam
 
 __version__ = '0.0.1'
 __updated__ = "07.02.2020"
