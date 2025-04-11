@@ -10,12 +10,12 @@ from . import genome
 # Child class inheriting Nucmer runner
 class Nucmer(pymummer.nucmer.Runner):
     
-    def __init__(self, ref, query, outfile, min_length=2000, gap = 0):
+    def __init__(self, ref, query, outfile, min_length=2000, gap = 0, replace = False):
         super().__init__(ref=ref, query = query, outfile=outfile)  # Calls Person's __init__()
         self.qry_fasta = genome.GenomeClass(query)
         self.ref_fasta = genome.GenomeClass(ref)
         self.outfile = outfile
-        if not os.path.exists(outfile):
+        if not os.path.exists(outfile) or replace:
             self.run()
             self._log = subprocess.Popen("nucmer -p %s.nucmer %s %s " % (self.outfile, ref, query),  shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         self.result = self._get_nucmer_output(min_length=min_length, gap = gap)
