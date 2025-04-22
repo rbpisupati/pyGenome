@@ -67,6 +67,19 @@ class GenomeClass(object):
         self.chr_inds = np.append(0, np.cumsum(self.golden_chrlen))        
 
     def load_bed_ids_str(self, **kwargs):
+        """
+        This function loads the bed files in the genome class.
+        It also creates a string version of the bed file for faster access.
+        Inputs:
+            kwargs: bed file names
+
+        Outputs:
+            self.<bed_file_name> : pandas dataframe
+            self.<bed_file_name>_str : numpy array of strings
+
+        Example:
+            self.load_bed_ids_str( ARAPORT11 = "ARAPORT11/Araport11_GFF3_genes_201606.bed", TAIR10 = "TAIR10/TAIR10_GFF3_genes_201606.bed" )
+        """
         for req_name in kwargs:
             req_bed_df = pd.read_csv( kwargs[req_name], header=None, sep = "\t", dtype = {0: str, 1: int, 2: int} )
             setattr(self, req_name, req_bed_df)
@@ -273,16 +286,6 @@ class GenomeClass(object):
         gc_sum = char_count['C'] + char_count['G']
         at_sum = char_count['A'] + char_count['T']
         return( (100 * gc_sum) / (gc_sum + at_sum)  )
-
-    def output_stats(self, output_file = None):
-        """
-        """
-        contig_lens, scaffold_lens, gc_cont = self.read_genome()
-        contig_stats = self._calculate_stats(contig_lens, gc_cont)
-        # scaffold_stats = self._calculate_stats(scaffold_lens, gc_cont)
-        # stat_output = {'Contig Stats': contig_stats,
-                        # 'Scaffold Stats': scaffold_stats}
-        return(contig_stats)
     
     def _fasta_iter(self, fasta_file=None):
         """Takes a FASTA file, and produces a generator of Header and Sequences.
@@ -314,7 +317,7 @@ class GenomeClass(object):
             seq = "".join(s.upper().strip() for s in next(fa_iter))
             yield header, seq
 
-    def read_genome(self, fasta_file=None):
+    def determine_stats(self, fasta_file=None):
         """Takes a FASTA file, and produces 2 lists of sequence lengths. It also
         calculates the GC Content, since this is the only statistic that is not
         calculated based on sequence lengths.
@@ -326,21 +329,34 @@ class GenomeClass(object):
 
         Returns
         -------
-        contig_lens: list
-            A list of lengths of all contigs in the genome.
-        scaffold_lens: list
-            A list of lengths of all scaffolds in the genome.
-        gc_cont: float
-            The percentage of total basepairs in the genome that are either G or C.
+        Dictionary with keys 'contigs' and 'scaffolds' containing the statistics
+        for contigs and scaffolds respectively. The statistics include:
+            - sequence_count
+            - gc_content
+            - longest
+            - shortest
+            - median
+            - mean
+            - total_bps
+            - L10, L20, L30, L40, L50
+            - N10, N20, N30, N40, N50
+        
+        Also includes a pandas dataframe with the lengths of each scaffold
+        and their IDs.
         """
         if fasta_file is None:
-            fasta_file = self.fasta_file
+            input_fasta_file = self.fasta_file
+        else: 
+            input_fasta_file = fasta_file
+        
+        assert os.path.exists(input_fasta_file), "please provide a valid fasta file"
+
         gc = 0
         total_len = 0
         contig_lens = []
-        scaffold_lens = []
-        for _, seq in self._fasta_iter(fasta_file):
-            scaffold_lens.append(len(seq))
+        scaffold_lens = pd.DataFrame(columns=["id", "length"])
+        for index, [id, seq] in enumerate( self._fasta_iter(fasta_file) ):
+            scaffold_lens.loc[index] = [id, len(seq)]
             if "NN" in seq:
                 contig_list = seq.split("NN")
             else:
@@ -351,7 +367,12 @@ class GenomeClass(object):
                     total_len += len(contig)
                     contig_lens.append(len(contig))
         gc_cont = (gc / total_len) * 100
-        return contig_lens, scaffold_lens, gc_cont
+        stats = {'contigs': self._calculate_stats(contig_lens, gc_cont), 'scaffolds': self._calculate_stats(scaffold_lens['length'], gc_cont), 'seqs': scaffold_lens } 
+        
+        if fasta_file is None:
+            self.stats = stats
+
+        return stats
 
     @staticmethod
     def _calculate_stats(seq_lens, gc_cont):
@@ -379,6 +400,35 @@ class GenomeClass(object):
             stats['L' + str(level)] = l_level
             stats['N' + str(level)] = n_level
         return stats
+
+    
+    def filter_fasta(self, required_ids, output_file, fasta_file=None):
+        """
+        Takes a FASTA file, and produces a filtered FASTA file. The filter
+        is based on given IDs.
+
+        Parameters
+        ----------
+        required_ids : list
+            Pandas series of IDs that are needed in the output file.
+        output_file : str
+            The file location of the output file.
+
+        fasta_file (optional) : str
+            The file location of the FASTA file. Else the fasta file while initializing is taken.
+
+        Returns
+        -------
+        None
+        """
+        if fasta_file is None:
+            fasta_file = self.fasta_file
+        assert type(required_ids) is pd.Series, "please provide a pandas series of required ids"
+        with open(output_file, 'w') as out_fh:
+            for header, seq in self._fasta_iter(fasta_file):
+                if required_ids.eq(header).any():
+                    out_fh.write(">" + header + "\n")
+                    out_fh.write(seq + "\n")
 
 
 
