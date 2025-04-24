@@ -7,6 +7,7 @@ from . import genome
 from . import plotting
 from . import bam
 from . import seqalign
+from . import seqkit
 
 __version__ = '0.0.1'
 __updated__ = "07.02.2020"
