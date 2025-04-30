@@ -45,8 +45,11 @@ class SeqKitRunner:
     def locate(self, input_file, seq):
         """Locate a sequence in a FASTA/Q file using 'seqkit locate'."""
         if os.path.isfile( input_file ):
-            cmd = 'zcat %s | %s locate -p %s ' % (input_file, self.seqkit_path, seq)
-            # ['cat', input_file, ' | ', self.seqkit_path, 'locate', '-p', seq]
+            if os.path.splitext(input_file)[-1] == '.gz':
+                # If the input file is gzipped, use zcat to decompress it
+                cmd = 'zcat %s | %s locate -p %s ' % (input_file, self.seqkit_path, seq)
+            else:
+                cmd = "cat %s | %s locate -p %s " % (input_file, self.seqkit_path, seq)
         else:
             cmd = "echo '>input\n%s\n' | %s locate -p %s " % (input_file, self.seqkit_path, seq) 
             # ['echo', input_file, ' | ', self.seqkit_path, 'locate', '-p', seq]
