@@ -12,33 +12,28 @@ class PairwiseAligner(object):
     Class for performing pairwise alignments across list of sequences
 
     Args:
-        seqs (str): Pandas series, the indices are maintained.
-
         mode (str): Mode of alignment. Options are 'local', 'global'
         
     """
     
-    def __init__(self, seqs, mode = 'global'):
+    def __init__(self, mode = 'global'):
         from Bio.Align import PairwiseAligner
-        
-        assert type(seqs) == pd.Series, "seqs should be a pandas series"
-
-        self.seqs = seqs
         self._aligner = PairwiseAligner()
         self._aligner.mode = mode
 
-    def align(self):
+    def align(self, seqs):
         """
         Perform pairwise alignment each two elements.
 
         Returns:
             dataframe: Dataframe with pairwise scores.
         """
+        assert type(seqs) == pd.Series, "seqs should be a pandas series, the indices are maintained"
         import itertools
 
-        pairwise_scores = pd.DataFrame(columns=self.seqs.index, index=self.seqs.index)
+        pairwise_scores = pd.DataFrame(columns=seqs.index, index=seqs.index)
         for ef in itertools.combinations(pairwise_scores.index, 2):
-            ef_align = self._aligner.align(self.seqs[ef[0]], self.seqs[ef[1]])
+            ef_align = self._aligner.align(seqs[ef[0]], seqs[ef[1]])
             pairwise_scores.loc[ef[0], ef[1]] = ef_align.score
             pairwise_scores.loc[ef[1], ef[0]] = ef_align.score
 
