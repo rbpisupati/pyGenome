@@ -7,6 +7,45 @@ import subprocess
 
 from . import genome
 
+class PairwiseAligner(object):
+    """
+    Class for performing pairwise alignments across list of sequences
+
+    Args:
+        seqs (str): Pandas series, the indices are maintained.
+
+        mode (str): Mode of alignment. Options are 'local', 'global'
+        
+    """
+    
+    def __init__(self, seqs, mode = 'global'):
+        from Bio.Align import PairwiseAligner
+        
+        assert type(seqs) == pd.Series, "seqs should be a pandas series"
+
+        self.seqs = seqs
+        self._aligner = PairwiseAligner()
+        self._aligner.mode = mode
+
+    def align(self):
+        """
+        Perform pairwise alignment each two elements.
+
+        Returns:
+            dataframe: Dataframe with pairwise scores.
+        """
+        import itertools
+
+        pairwise_scores = pd.DataFrame(columns=self.seqs.index, index=self.seqs.index)
+        for ef in itertools.combinations(pairwise_scores.index, 2):
+            ef_align = self._aligner.align(self.seqs[ef[0]], self.seqs[ef[1]])
+            pairwise_scores.loc[ef[0], ef[1]] = ef_align.score
+            pairwise_scores.loc[ef[1], ef[0]] = ef_align.score
+
+        return pairwise_scores
+
+
+
 # Child class inheriting Nucmer runner
 class Nucmer(pymummer.nucmer.Runner):
     
