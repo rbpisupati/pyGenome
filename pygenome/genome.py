@@ -38,6 +38,50 @@ def iter_chr_positions_windows(reference_bed, query_positions, window_size):
             yield((bin_bed, result))
 
 
+def download_ncbi_data(nucleotide_id, email, output_fasta=None, output_gb=None):
+    """
+    Downloads nucleotide sequence and/or GFF annotation from NCBI given an accession ID.
+
+    Parameters:
+    - nucleotide_id (str): The NCBI accession ID (e.g., "NC_000001.11").
+    - email (str): Your email address (required by NCBI Entrez).
+    - output_fasta (str): Optional filename to save FASTA.
+    - output_gff (str): Optional filename to save GFF.
+
+    Returns:
+    - fasta_record: SeqRecord object if FASTA is downloaded; None otherwise.
+
+    To convert genbank to gff3, use:
+    subprocess.Popen('python /home/IBT/pisupati/mygit/biocode/gff/convert_genbank_to_gff3.py -i id.gb -o id.gff3', shell = True)
+
+    """
+    from Bio import Entrez, SeqIO
+    Entrez.email = email
+    fasta_record = None
+
+    # Download FASTA
+    if output_fasta:
+        try:
+            with Entrez.efetch(db="nucleotide", id=nucleotide_id, rettype="fasta", retmode="text") as handle:
+                fasta_record = SeqIO.read(handle, "fasta")
+                SeqIO.write(fasta_record, output_fasta, "fasta")
+                print(f"FASTA saved to {output_fasta}")
+        except Exception as e:
+            print(f"Error downloading FASTA: {e}")
+
+    # Download GFF
+    if output_gb:
+        try:
+            with Entrez.efetch(db="nucleotide", id=nucleotide_id, rettype="gff", retmode="text") as handle:
+                gff_data = handle.read()
+                with open(output_gb, "w") as f:
+                    f.write(gff_data)
+                print(f"GB saved to {output_gb}")
+        except Exception as e:
+            print(f"Error downloading GB: {e}")
+
+    return fasta_record
+
 class GenomeClass(object):
     ## coordinates for ArabidopsisGenome using TAIR 10
 
