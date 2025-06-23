@@ -3,7 +3,6 @@ import numpy as np
 import scipy as sp
 import pandas as pd
 from matplotlib import pyplot as plt
-from matplotlib.collections import BrokenBarHCollection, PathCollection, LineCollection
 import seaborn as sns
 
 from . import genome
@@ -43,81 +42,6 @@ def smooth_sum(arr, n_times= 100):
 #         arr = sp.signal.convolve( arr, [0.25,0.5,0.25] )[1:-1]
     return(arr)
 
-"""
-Demonstrates plotting chromosome ideograms and genes (or any features, really)
-using matplotlib.
-1) Assumes a file from UCSC's Table Browser from the "cytoBandIdeo" table,
-saved as "ideogram.txt". Lines look like this::
-    #chrom  chromStart  chromEnd  name    gieStain
-    chr1    0           2300000   p36.33  gneg
-    chr1    2300000     5300000   p36.32  gpos25
-    chr1    5300000     7100000   p36.31  gneg
-2) Assumes another file, "ucsc_genes.txt", which is a BED format file
-   downloaded from UCSC's Table Browser. This script will work with any
-   BED-format file.
-"""
-# Here's the function that we'll call for each dataframe (once for chromosome
-# ideograms, once for genes).  The rest of this script will be prepping data
-# for input to this function
-#
-def chromosome_collections(df, y_positions, height,  **kwargs):
-    """
-    Yields BrokenBarHCollection of features that can be added to an Axes
-    object.
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Must at least have columns ['chrom', 'start', 'end', 'color']. If no
-        column 'width', it will be calculated from start/end.
-    y_positions : dict
-        Keys are chromosomes, values are y-value at which to anchor the
-        BrokenBarHCollection
-    height : float
-        Height of each BrokenBarHCollection
-    Additional kwargs are passed to BrokenBarHCollection
-    """
-    del_width = False
-    if 'width' not in df.columns:
-        del_width = True
-        df['width'] = df['end'] - df['start']
-    for chrom, group in df.groupby('chrom'):
-        yrange = (y_positions[chrom], height)
-        xranges = group[['start', 'width']].values
-        yield(BrokenBarHCollection(xranges, yrange, facecolors=group['colors'], **kwargs))
-    if del_width:
-        del df['width']
-        
-def line_collections(df, y_positions, line_plt_options = None, **kwargs):
-    """
-    Yields BrokenBarHCollection of features that can be added to an Axes
-    object.
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Must at least have columns ['chrom', 'start']
-    y_positions : dict
-        Keys are chromosomes, values are y-value at which to anchor the
-        PathCollection
-    Additional kwargs are passed to BrokenBarHCollection
-    """
-    if line_plt_options is None:
-        line_plt_options = {}
-    if "smooth" not in line_plt_options.keys():
-            line_plt_options['smooth'] = 1
-    if "bins" not in line_plt_options.keys():
-            line_plt_options['bins'] = 100
-    # if "max_height" not in line_plt_options.keys():
-
-    for chrom, group in df.groupby('chrom'):
-        if chrom in y_positions.keys():
-            inds = np.histogram( group['start'], bins = line_plt_options['bins'])
-            # import ipdb; ipdb.set_trace()
-            relative_y = inds[0]/float(np.sum(inds[0]))
-            relative_y = smooth_sum( relative_y/np.max(relative_y), line_plt_options['smooth'] )
-            y_ind = y_positions[chrom] + (line_plt_options['max_height'] * relative_y)
-            x_ind = inds[1][0:-1]
-            yield(LineCollection([np.column_stack([x_ind, y_ind])], color=group['colors'], **kwargs))
-
 
 
 class PlottingGenomeWide(object):
@@ -140,6 +64,95 @@ class PlottingGenomeWide(object):
         self.chr_info['chr_ind_end'] = np.array(self.genome.chr_inds)[1::]
         log.warn("filtering out genome scaffolds less than %s" % min_chr_length)
         self.chr_info = self.chr_info[self.chr_info['len'] > min_chr_length]
+
+    def patches_from_df(self, df, y_min=0, y_max=1, axs = None, plt_options = None):
+        """
+        Demonstrates plotting chromosome ideograms and genes (or any features, really)
+        using matplotlib.
+        1) Assumes a file from UCSC's Table Browser from the "cytoBandIdeo" table,
+        saved as "ideogram.txt". Lines look like this::
+            #chrom  chromStart  chromEnd  name    gieStain
+            chr1    0           2300000   p36.33  gneg
+            chr1    2300000     5300000   p36.32  gpos25
+            chr1    5300000     7100000   p36.31  gneg
+        2) Assumes another file, "ucsc_genes.txt", which is a BED format file
+        downloaded from UCSC's Table Browser. This script will work with any
+        BED-format file.
+        
+        Create rectangular patches in a matplotlib Axes from a DataFrame with 'start' and 'end' columns.
+
+        Parameters:
+        - axs : matplotlib.axes.Axes
+            The axes to which patches will be added.
+        - df : pandas.DataFrame
+            A dataframe containing 'start' and 'end' columns for x-axis ranges.
+        - y_min : float, default=0
+            The bottom of the rectangle in y-axis units.
+        - y_max : float, default=1
+            The top of the rectangle in y-axis units.
+        - color : str, default='lightgray'
+            Color of the patches.
+        - alpha : float, default=0.5
+            Transparency of the patches.
+
+        Returns:
+        - patches : list of matplotlib.patches.Rectangle
+            List of created patches.
+        """
+        import matplotlib.patches as mpatches
+    
+        if axs is None:
+            axs = plt.gca()
+        
+        if plt_options is None:
+            plt_options = {}
+        if "color" not in plt_options.keys():
+            plt_options['color'] = 'skyblue'
+        if "alpha" not in plt_options.keys():
+            plt_options['alpha'] = 0.5
+
+        patches = []
+        for _, row in df.iterrows():
+            rect = mpatches.Rectangle((row['start'], y_min), row['end'] - row['start'], y_max - y_min, color=plt_options['color'], alpha=plt_options['alpha'])
+            axs.add_patch(rect)
+            patches.append(rect)
+        return patches
+    
+    def lines_from_df(self, df, y_min = 0, y_max = 1, axs = None, plt_options = None):
+        """
+        Create line collections from a DataFrame with 'start' and 'end' columns.
+
+        Parameters:
+        - df : pandas.DataFrame
+            A dataframe containing 'start' and 'end' columns for x-axis ranges.
+        - y_positions : dict
+            A dictionary mapping chromosome names to y-axis positions.
+        - axs : matplotlib.axes.Axes, optional
+            The axes to which the lines will be added. If None, uses the current axes.
+        - plt_options : dict, optional
+            Additional options for line plotting (e.g., color, linewidth).
+
+        Returns:
+        - collections : list of matplotlib.collections.LineCollection
+            List of created line collections.
+        """
+        from matplotlib.collections import LineCollection
+
+        if axs is None:
+            axs = plt.gca()
+        
+        if plt_options is None:
+            plt_options = {}
+        if "color" not in plt_options.keys():
+            plt_options['color'] = 'black'
+        if "linewidth" not in plt_options.keys():
+            plt_options['linewidth'] = 1.0
+        
+        lines = [((row['start'], y_min), (row['start'], y_max)) for _, row in df.iterrows()]
+        collection = LineCollection(lines, colors=plt_options['color'], linewidths=plt_options['linewidth'])
+        axs.add_collection(collection)
+        
+        return collection
 
     def density_plot_chr_wide(self, bed_df, axs = None, plt_options = None):
         if plt_options is None:
