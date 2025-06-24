@@ -43,6 +43,13 @@ def smooth_sum(arr, n_times= 100):
     return(arr)
 
 
+def rand_jitter(arr, stdev = 0):
+    """
+    function add random jitter to an array of values
+    """
+    # stdev = .01 * (max(arr) - min(arr))
+    return arr + np.random.randn(len(arr)) * stdev
+
 
 class PlottingGenomeWide(object):
     """
@@ -110,10 +117,24 @@ class PlottingGenomeWide(object):
             plt_options['color'] = 'skyblue'
         if "alpha" not in plt_options.keys():
             plt_options['alpha'] = 0.5
+        if "jitter_stdev" not in plt_options.keys():
+            plt_options['jitter_stdev'] = 0
+        
+        if 'boxstyle' not in plt_options.keys():
+            plt_options['boxstyle'] = "rarrow" ## ["rarrow","square"] for an arrow
+        
 
         patches = []
         for _, row in df.iterrows():
-            rect = mpatches.Rectangle((row['start'], y_min), row['end'] - row['start'], y_max - y_min, color=plt_options['color'], alpha=plt_options['alpha'])
+            # rect = mpatches.Rectangle((row['start'], rand_jitter([y_min], plt_options['jitter_stdev'])[0]), row['end'] - row['start'], y_max - y_min, color=plt_options['color'], alpha=plt_options['alpha'])
+            rect = mpatches.FancyBboxPatch(
+                (row['start'], rand_jitter([y_min], plt_options['jitter_stdev'])[0]), row['end'] - row['start'], y_max - y_min,  # x, y, width, height
+                boxstyle=plt_options['boxstyle'],  # arrow on right
+                facecolor=plt_options['color'],
+                edgecolor=plt_options['color'],
+                alpha = plt_options['alpha']
+            )
+
             axs.add_patch(rect)
             patches.append(rect)
         return patches
